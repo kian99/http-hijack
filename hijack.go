@@ -88,7 +88,7 @@ func runNonTLSClient() {
 
 func runTLSClient() {
 	time.Sleep(1 * time.Second)
-	req, err := http.NewRequest("GET", "localhost:8081/auth", nil)
+	req, err := http.NewRequest("GET", "/auth", nil)
 	if err != nil {
 		panic(err)
 	}
