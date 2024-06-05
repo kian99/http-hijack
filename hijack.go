@@ -25,17 +25,17 @@ func main() {
 		fmt.Println("Server : Enter routine")
 		for {
 			time.Sleep(1 * time.Second)
-			fmt.Println("Server : I send")
+			fmt.Println("Server sending")
 			_, err = conn.Write([]byte("Hijack server"))
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println("Server : I'm receiving")
+			fmt.Println("Server receiving")
 			n, err := conn.Read(buffer)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("Server : %d bytes from client : %s\n", n, string(buffer))
+			fmt.Printf("Server: %d bytes from client -> %s\n", n, string(buffer))
 		}
 	})
 
@@ -59,14 +59,14 @@ func main() {
 
 func loopSendReceive(conn net.Conn, reader io.Reader) {
 	buffer := make([]byte, 1024)
-	fmt.Println("Client : Enter client routine")
+	fmt.Println("Client: Enter routine to send and receive")
 	for {
 		time.Sleep(250 * time.Millisecond)
 		n, err := reader.Read(buffer)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Receive %d bytes : %s\n", n, string(buffer))
+		fmt.Printf("Client: Received %d bytes -> %s\n", n, string(buffer[:n]))
 		conn.Write([]byte("I am Leo"))
 	}
 }
@@ -82,7 +82,6 @@ func runNonTLSClient() {
 	if err != nil {
 		panic(err)
 	}
-
 	loopSendReceive(conn, conn)
 }
 
@@ -97,32 +96,20 @@ func runTLSClient() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Client : create TLS connection")
+	fmt.Println("Client: create TLS connection")
 	tls_conn := tls.Client(dial, &tls.Config{InsecureSkipVerify: true})
-	_ = tls_conn
 
 	var conn *httputil.ClientConn
-	fmt.Println("Client : create http connection from tls client")
+	fmt.Println("Client: create http connection from tls client")
 	conn = httputil.NewClientConn(tls_conn, nil)
 
-	fmt.Println("Client : do request through http connection")
+	fmt.Println("Client: do request through http connection")
 	_, err = conn.Do(req)
 	if err != httputil.ErrPersistEOF && err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Client : hijack https connection")
+	fmt.Println("Client: hijack https connection")
 	connection, reader := conn.Hijack()
-
-	buffer := make([]byte, 1024)
-	fmt.Println("Client : Enter client routine")
-	for {
-		time.Sleep(250 * time.Millisecond)
-		n, err := reader.Read(buffer)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Receive %d bytes : %s\n", n, string(buffer))
-		connection.Write([]byte("I am Leo"))
-	}
+	loopSendReceive(connection, reader)
 }
