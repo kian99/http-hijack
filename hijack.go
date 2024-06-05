@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const useTLS = true
+const useTLS = false
 
 func main() {
 	http.HandleFunc("/auth", func(res http.ResponseWriter, req *http.Request) {
@@ -77,7 +77,7 @@ func runNonTLSClient() {
 	if err != nil {
 		panic(err)
 	}
-	initialHTTPreq := fmt.Sprintf("CONNECT localhost:8081/auth HTTP/1.1\r\nHost: localhost:8081\r\n\r\n")
+	initialHTTPreq := fmt.Sprintf("GET /auth HTTP/1.1\r\nHost: localhost:8081\r\n\r\n")
 	_, err = conn.Write([]byte(initialHTTPreq))
 	if err != nil {
 		panic(err)
