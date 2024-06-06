@@ -3,26 +3,21 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"time"
 )
 
-const useTLS = false
+const useTLS = true
 
 func main() {
-	http.HandleFunc("/auth", func(res http.ResponseWriter, req *http.Request) {
+	http.HandleFunc("/foo", func(res http.ResponseWriter, req *http.Request) {
 		conn, _, err := res.(http.Hijacker).Hijack()
 		if err != nil {
 			panic(err)
 		}
-		conn.Write([]byte{})
-		fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n")
-
+		defer conn.Close()
 		buffer := make([]byte, 1024)
-		fmt.Println("Server : Enter routine")
 		for {
 			time.Sleep(1 * time.Second)
 			fmt.Println("Server sending")
@@ -39,11 +34,7 @@ func main() {
 		}
 	})
 
-	if useTLS {
-		go runTLSClient()
-	} else {
-		go runNonTLSClient()
-	}
+	go runClient()
 
 	var err error
 	if useTLS {
@@ -57,37 +48,23 @@ func main() {
 	}
 }
 
-func loopSendReceive(conn net.Conn, reader io.Reader) {
+func loopSendReceive(conn net.Conn) {
 	buffer := make([]byte, 1024)
 	fmt.Println("Client: Enter routine to send and receive")
 	for {
 		time.Sleep(250 * time.Millisecond)
-		n, err := reader.Read(buffer)
+		n, err := conn.Read(buffer)
 		if err != nil {
 			panic(err)
 		}
 		fmt.Printf("Client: Received %d bytes -> %s\n", n, string(buffer[:n]))
-		conn.Write([]byte("I am Leo"))
+		conn.Write([]byte("Hello world"))
 	}
 }
 
-func runNonTLSClient() {
+func runClient() {
 	time.Sleep(1 * time.Second)
-	conn, err := net.Dial("tcp", "localhost:8081")
-	if err != nil {
-		panic(err)
-	}
-	initialHTTPreq := fmt.Sprintf("GET /auth HTTP/1.1\r\nHost: localhost:8081\r\n\r\n")
-	_, err = conn.Write([]byte(initialHTTPreq))
-	if err != nil {
-		panic(err)
-	}
-	loopSendReceive(conn, conn)
-}
-
-func runTLSClient() {
-	time.Sleep(1 * time.Second)
-	req, err := http.NewRequest("GET", "/auth", nil)
+	req, err := http.NewRequest("GET", "/foo", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -96,20 +73,13 @@ func runTLSClient() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Client: create TLS connection")
-	tls_conn := tls.Client(dial, &tls.Config{InsecureSkipVerify: true})
-
-	var conn *httputil.ClientConn
-	fmt.Println("Client: create http connection from tls client")
-	conn = httputil.NewClientConn(tls_conn, nil)
-
-	fmt.Println("Client: do request through http connection")
-	_, err = conn.Do(req)
-	if err != httputil.ErrPersistEOF && err != nil {
-		panic(err)
+	if useTLS {
+		dial = tls.Client(dial, &tls.Config{InsecureSkipVerify: true})
 	}
 
-	fmt.Println("Client: hijack https connection")
-	connection, reader := conn.Hijack()
-	loopSendReceive(connection, reader)
+	err = req.Write(dial)
+	if err != nil {
+		panic(err)
+	}
+	loopSendReceive(dial)
 }
